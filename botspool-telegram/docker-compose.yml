@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build:
+      context: ..
+      dockerfile: botspool-telegram/Dockerfile
+    container_name: botspool-telegram
+    env_file:
+      - .env.docker
+    ports:
+      - "8080:8080"  # Health check port
+      - "8081:8081"  # Notification endpoint
+    networks:
+      - botspool-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  botspool-network:
+    external: true
+

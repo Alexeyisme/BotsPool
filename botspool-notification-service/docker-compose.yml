@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: botspool-notification-service
+    env_file:
+      - .env.docker
+    environment:
+      - REDIS_URL=redis://botspool-redis:6379/0
+      - TELEGRAM_BOT_URL=http://botspool-telegram:8081
+    ports:
+      - "8090:8090"
+    networks:
+      - botspool-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8090/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  notification-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: botspool-notification-worker
+    env_file:
+      - .env.docker
+    environment:
+      - REDIS_URL=redis://botspool-redis:6379/0
+      - TELEGRAM_BOT_URL=http://botspool-telegram:8081
+    networks:
+      - botspool-network
+    restart: unless-stopped
+    depends_on:
+      - notification-service
+
+networks:
+  botspool-network:
+    external: true
+

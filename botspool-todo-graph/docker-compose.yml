@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  todo-graph:
+    build: .
+    container_name: botspool-todo-graph
+    ports:
+      - "8011:8001"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres-todograph:5432/botspool_todograph
+      REDIS_URL: redis://botspool-redis:6379/0
+      GATEWAY_URL: http://botspool-gateway:8000
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
+      ENVIRONMENT: development
+    env_file:
+      - .env
+    networks:
+      - botspool
+    volumes:
+      - /Users/a.kislitsin/Documents/Development/BotsPool/botspool-todo-graph:/app
+      - /Users/a.kislitsin/Documents/Development/BotsPool/botspool-shared-utils:/app/botspool-shared-utils
+    command: >-
+      sh -c "pip install -e /app/botspool-shared-utils && python -m uvicorn src.main:app --host 0.0.0.0 --port 8001"
+
+networks:
+  botspool:
+    external: true
+    name: botspool-network

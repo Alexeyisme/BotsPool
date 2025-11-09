@@ -1,0 +1,68 @@
+version: '3.8'
+
+volumes:
+  botspool-postgres-gateway:
+    driver: local
+  botspool-postgres-todograph:
+    driver: local
+  botspool-redis:
+    driver: local
+
+services:
+  postgres-gateway:
+    image: postgres:16
+    container_name: botspool-postgres-gateway
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: botspool_gateway
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - botspool-postgres-gateway:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 1s
+      retries: 5
+    networks:
+      - botspool
+
+  postgres-todograph:
+    image: postgres:16
+    container_name: botspool-postgres-todograph
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: botspool_todograph
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - botspool-postgres-todograph:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 1s
+      retries: 5
+    networks:
+      - botspool
+
+  redis:
+    image: redis:6
+    container_name: botspool-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - botspool-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 1s
+      retries: 5
+    networks:
+      - botspool
+
+networks:
+  botspool:
+    name: botspool-network
+    driver: bridge

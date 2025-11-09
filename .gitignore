@@ -1,0 +1,57 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+botspool-test-env/
+
+# Environment files
+.env
+.env.*
+*.env
+!**/.env.example
+!**/.env.sample
+.envrc
+
+# Build / distribution artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Test & coverage artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage*
+coverage.xml
+htmlcov/
+
+# Logs & runtime state
+*.log
+*.pid
+logs/
+tmp/
+*.sqlite3
+*.db
+
+# IDE / editor settings
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+.DS_Store
+
+# Docker / tooling leftovers
+*.tar
+
+# Local copies / vendor folders
+botspool-todo-graph/botspool-shared-utils/
+botspool-gateway/gateway.log
+botspool-gateway/gateway.pid

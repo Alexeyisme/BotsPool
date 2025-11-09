@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: /Users/a.kislitsin/Documents/Development/BotsPool/botspool-gateway
+      dockerfile: Dockerfile
+    container_name: botspool-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres-gateway:5432/botspool_gateway
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+    env_file:
+      - /Users/a.kislitsin/Documents/Development/BotsPool/botspool-gateway/.env.docker
+    networks:
+      - botspool
+    volumes:
+      - /Users/a.kislitsin/Documents/Development/BotsPool/botspool-gateway:/app
+      - /Users/a.kislitsin/Documents/Development/BotsPool/botspool-shared-utils:/app/botspool-shared-utils
+    command: >-
+      sh -c "pip install -e /app/botspool-shared-utils && python -m uvicorn src.main:app --host 0.0.0.0 --port 8000"
+
+networks:
+  botspool:
+    external: true
+    name: botspool-network
