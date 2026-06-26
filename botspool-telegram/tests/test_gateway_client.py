@@ -71,7 +71,7 @@ async def test_ensure_valid_token_refresh(gateway_client, mock_state):
     mock_state.get_refresh_token.return_value = "refresh_token"
     mock_state.get_token.return_value = "new_token"
 
-    with patch("src.gateway.auth.refresh_access_token") as mock_refresh:
+    with patch("src.gateway.client.refresh_access_token") as mock_refresh:
         mock_refresh.return_value = {
             "access_token": "new_token",
             "refresh_token": "new_refresh",
