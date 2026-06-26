@@ -9,14 +9,18 @@ from ..config import settings
 from ..services.scheduler import NotificationScheduler
 from ..services.dispatcher import NotificationDispatcher
 
-logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 # Global flag for graceful shutdown
 shutdown_flag = False
+
+
+def _configure_logging() -> None:
+    """Configure logging when running as a standalone worker process."""
+    logging.basicConfig(
+        level=getattr(logging, settings.LOG_LEVEL),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
 
 
 def signal_handler(signum, frame):
@@ -122,6 +126,7 @@ async def notification_worker():
 
 def main():
     """Main entry point"""
+    _configure_logging()
     try:
         asyncio.run(notification_worker())
     except KeyboardInterrupt:

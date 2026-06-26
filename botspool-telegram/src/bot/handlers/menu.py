@@ -3,6 +3,8 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 from ..keyboards import build_main_menu_keyboard
+from .status import status_handler_callback
+from .help import help_handler_callback
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +50,7 @@ async def callback_query_handler(
         logger.info("User switched agent", extra={"chat_id": chat_id, "agent": agent})
 
     elif data == "show_status":
-        # Import here to avoid circular import
-        from .status import status_handler_callback
-
         await status_handler_callback(query, state, gateway_client)
 
     elif data == "show_help":
-        # Import here to avoid circular import
-        from .help import help_handler_callback
-
         await help_handler_callback(query)

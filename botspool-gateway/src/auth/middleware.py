@@ -1,117 +1,28 @@
 """
-JWT Authentication middleware for BotsPool Gateway
+JWT Authentication dependencies for BotsPool Gateway
 
-This module provides JWT authentication middleware and dependencies
-for protecting API endpoints.
+This module provides FastAPI dependencies for protecting API endpoints
+with JWT-based authentication and RBAC checks.
 """
 
 import logging
 from typing import Optional, Dict, Any
-from fastapi import HTTPException, status, Depends, Request
+from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from botspool_shared_utils.auth.jwt_handler import JWTHandler
 from ..dependencies import get_jwt_handler
 from botspool_shared_utils.auth.rbac import RBACManager, get_rbac_manager
-from botspool_shared_utils.models.user import User
 from botspool_shared_utils.models.enums import (
     UserRole,
     Permission,
-    FrontendType,
     GraphType,
-)
-from botspool_shared_utils.errors import (
-    AuthenticationError,
-    AuthorizationError,
-    ErrorCode,
 )
 
 logger = logging.getLogger(__name__)
 
 # HTTP Bearer token security scheme
 security = HTTPBearer(auto_error=False)
-
-
-class JWTAuthMiddleware(BaseHTTPMiddleware):
-    """
-    JWT Authentication middleware.
-
-    This middleware validates JWT tokens for protected endpoints
-    and adds user information to request state.
-    """
-
-    def __init__(self, app, jwt_handler: Optional[JWTHandler] = None):
-        super().__init__(app)
-        self.jwt_handler = jwt_handler or get_jwt_handler()
-        self.logger = logging.getLogger(__name__)
-
-    async def dispatch(self, request: Request, call_next):
-        """
-        Process request through JWT authentication.
-
-        Args:
-            request: FastAPI request
-            call_next: Next middleware/handler
-
-        Returns:
-            Response: HTTP response
-        """
-        # Skip authentication for public endpoints
-        if self._is_public_endpoint(request):
-            return await call_next(request)
-
-        # Extract token from Authorization header
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return await call_next(request)
-
-        token = auth_header[7:]  # Remove "Bearer " prefix
-
-        try:
-            # Validate token
-            payload = self.jwt_handler.validate_token(token, "access")
-
-            # Add user information to request state
-            request.state.user_id = payload.get("sub")
-            request.state.user_role = payload.get("role")
-            request.state.user_permissions = payload.get("permissions", [])
-            request.state.frontend_type = payload.get("frontend_type")
-            request.state.allowed_graphs = payload.get("allowed_graphs", [])
-            request.state.token_payload = payload
-
-            self.logger.debug(f"Authenticated user: {payload.get('sub')}")
-
-        except Exception as exc:
-            self.logger.warning(f"JWT validation failed: {exc}")
-            # Don't raise exception here - let individual endpoints handle auth
-
-        return await call_next(request)
-
-    def _is_public_endpoint(self, request) -> bool:
-        """
-        Check if endpoint is public (doesn't require authentication).
-
-        Args:
-            request: FastAPI request
-
-        Returns:
-            bool: True if public endpoint
-        """
-        public_paths = [
-            "/",
-            "/health",
-            "/health/",
-            "/health/status",
-            "/health/ready",
-            "/health/live",
-            "/docs",
-            "/redoc",
-            "/openapi.json",
-            "/api/v1/graphs/register",  # Allow graph instances to register themselves
-        ]
-
-        return request.url.path in public_paths
 
 
 async def get_current_user(
@@ -258,22 +169,3 @@ async def require_admin(
         )
 
     return current_user
-
-
-def create_auth_middleware(
-    jwt_handler: Optional[JWTHandler] = None,
-) -> JWTAuthMiddleware:
-    """
-    Create JWT authentication middleware.
-
-    Args:
-        jwt_handler: JWT handler instance
-
-    Returns:
-        JWTAuthMiddleware: Configured middleware
-    """
-
-    def middleware_factory(app):
-        return JWTAuthMiddleware(app, jwt_handler)
-
-    return middleware_factory

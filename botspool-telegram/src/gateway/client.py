@@ -4,6 +4,7 @@ import httpx
 from httpx import HTTPStatusError
 from typing import Dict, List
 from ..models import GraphUnavailableError, AuthRefreshError
+from .auth import refresh_access_token
 
 
 class GatewayClient:
@@ -40,9 +41,6 @@ class GatewayClient:
                 )
                 await self.state.clear_session(chat_id, preserve_credentials=True)
                 raise AuthRefreshError("Missing refresh token")
-
-            # Import here to avoid circular import
-            from .auth import refresh_access_token
 
             try:
                 new_tokens = await refresh_access_token(refresh_token, self.base_url)
@@ -110,10 +108,7 @@ class GatewayClient:
 
         if not user_uuid:
             # Fallback: use telegram_user_id (but log warning)
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.warning(
+            self.logger.warning(
                 f"No UUID for chat {chat_id}, using telegram_id {telegram_user_id}"
             )
             user_uuid = str(telegram_user_id)
