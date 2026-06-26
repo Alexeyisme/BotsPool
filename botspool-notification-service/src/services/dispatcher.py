@@ -3,6 +3,11 @@ import logging
 from typing import Dict
 import redis.asyncio as redis
 
+from botspool_shared_utils.redis_utils import (
+    check_rate_limit_count,
+    increment_rate_limit_counter,
+)
+
 from ..models import (
     ScheduledNotification,
     BotNotificationRequest,
@@ -164,13 +169,9 @@ class NotificationDispatcher:
             True if within limit
         """
         key = f"notification:ratelimit:{user_id}"
-        count = await self.redis.get(key)
-
-        if count is None:
-            return True
-
-        count = int(count.decode() if isinstance(count, bytes) else count)
-        return count < settings.MAX_NOTIFICATIONS_PER_HOUR
+        return await check_rate_limit_count(
+            self.redis, key, settings.MAX_NOTIFICATIONS_PER_HOUR
+        )
 
     async def _increment_rate_limit(self, user_id: str):
         """
@@ -180,12 +181,7 @@ class NotificationDispatcher:
             user_id: BotsPool user UUID
         """
         key = f"notification:ratelimit:{user_id}"
-
-        # Increment with expiry
-        count = await self.redis.incr(key)
-        if count == 1:
-            # First notification in window, set expiry
-            await self.redis.expire(key, 3600)  # 1 hour
+        await increment_rate_limit_counter(self.redis, key, 3600)  # 1 hour window
 
     async def close(self):
         """Close all client connections"""

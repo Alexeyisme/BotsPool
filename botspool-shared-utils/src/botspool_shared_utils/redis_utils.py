@@ -19,6 +19,36 @@ from .errors import ConfigurationError, ExternalServiceError
 logger = logging.getLogger(__name__)
 
 
+async def increment_rate_limit_counter(
+    redis_client: redis.Redis, key: str, window: int
+) -> int:
+    """
+    Increment a sliding-window rate-limit counter, setting its expiry the
+    first time it's created. Callers supply their own key so existing
+    Redis key prefixes (e.g. "telegram:ratelimit:*") are preserved.
+
+    Returns the counter's new value.
+    """
+    count = await redis_client.incr(key)
+    if count == 1:
+        await redis_client.expire(key, window)
+    return count
+
+
+async def check_rate_limit_count(redis_client: redis.Redis, key: str, limit: int) -> bool:
+    """
+    Check whether a rate-limit counter is currently within limit, without
+    incrementing it. Useful when increment should only happen after a
+    dependent action succeeds.
+    """
+    count = await redis_client.get(key)
+    if count is None:
+        return True
+
+    count = int(count.decode() if isinstance(count, bytes) else count)
+    return count < limit
+
+
 class RedisKeyPatterns:
     """Redis key patterns as specified in the architecture."""
 

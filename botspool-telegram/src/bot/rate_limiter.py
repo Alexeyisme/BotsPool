@@ -1,6 +1,8 @@
 """Rate limiting for bot messages"""
 import redis.asyncio as redis
 
+from botspool_shared_utils.redis_utils import increment_rate_limit_counter
+
 
 class RateLimiter:
     """Redis-based rate limiter for user messages"""
@@ -31,10 +33,7 @@ class RateLimiter:
             True if within limit, False if exceeded
         """
         key = f"telegram:ratelimit:{telegram_user_id}"
-        count = await self.redis.incr(key)
-
-        if count == 1:
-            await self.redis.expire(key, self.window)
+        count = await increment_rate_limit_counter(self.redis, key, self.window)
 
         return count <= self.max_messages
 
