@@ -90,18 +90,17 @@ class UserService:
             ValidationError: If validation fails
         """
         try:
-            # Validate email uniqueness
-            existing_user = await self.user_queries.get_user_by_email(email)
+            # Validate email/username uniqueness in a single query
+            existing_user = await self.user_queries.get_user_by_email_or_username(
+                email, username
+            )
             if existing_user:
-                raise ValidationError(
-                    message="Email already registered",
-                    field="email",
-                    error_code=ErrorCode.VALIDATION_DUPLICATE_VALUE_009,
-                )
-
-            # Validate username uniqueness
-            existing_user = await self.user_queries.get_user_by_username(username)
-            if existing_user:
+                if existing_user.auth and existing_user.auth.email == email:
+                    raise ValidationError(
+                        message="Email already registered",
+                        field="email",
+                        error_code=ErrorCode.VALIDATION_DUPLICATE_VALUE_009,
+                    )
                 raise ValidationError(
                     message="Username already taken",
                     field="username",

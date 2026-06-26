@@ -123,6 +123,29 @@ class UserQueries(QueryBuilder):
 
         return await self.execute_one(query)
 
+    async def get_user_by_email_or_username(
+        self, email: str, username: str
+    ) -> Optional[UserModel]:
+        """Get user matching either email or username, for uniqueness checks."""
+        query = (
+            select(UserModel)
+            .join(UserAuthModel)
+            .join(UserProfileModel)
+            .where(
+                or_(
+                    UserAuthModel.email == email,
+                    UserProfileModel.username == username,
+                )
+            )
+            .options(
+                selectinload(UserModel.auth),
+                selectinload(UserModel.profile),
+                selectinload(UserModel.preferences),
+            )
+        )
+
+        return await self.execute_one(query)
+
     async def create_user(self, user_data: Dict[str, Any]) -> UserModel:
         """Create a new user."""
         user = UserModel(**user_data)
@@ -351,18 +374,14 @@ class ChatQueries(QueryBuilder):
         return await self.execute_query(query)
 
     async def update_session_message_count(self, session_id: str) -> None:
-        """Update session message count."""
-        # Get current count
-        count_query = select(func.count(ChatMessageModel.id)).where(
-            ChatMessageModel.session_id == session_id
-        )
-        count = await self.execute_scalar(count_query)
-
-        # Update session
+        """Increment session message count after a new message is added."""
         query = (
             update(ChatSessionModel)
             .where(ChatSessionModel.session_id == session_id)
-            .values(message_count=count, last_message_at=func.now())
+            .values(
+                message_count=ChatSessionModel.message_count + 1,
+                last_message_at=func.now(),
+            )
         )
         await self.session.execute(query)
 
