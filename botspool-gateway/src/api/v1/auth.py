@@ -423,12 +423,15 @@ async def request_password_reset(
             redis_key = f"password_reset:{token}"
             await redis_client.setex(redis_key, 3600, str(user.id))  # 1 hour
 
-            # TODO: Send email with reset link
-            # For now, log it
-            logger.info(
-                f"Password reset requested for user {user.id}. Token: {token[:20]}..."
+            # Email delivery requires a transactional email provider (SendGrid,
+            # SES, etc.) which is not yet configured. Do NOT deploy to
+            # production without replacing this with real email delivery.
+            logger.warning(
+                "Password reset token generated for user %s - EMAIL DELIVERY "
+                "NOT CONFIGURED, token logged for development only: %s...",
+                user.id,
+                token[:20],
             )
-            logger.info(f"Reset link would be: /password-reset/confirm?token={token}")
 
         return PasswordResetRequestResponse(
             message="If the email exists, a password reset link has been sent"
@@ -482,6 +485,7 @@ async def confirm_password_reset(
     db_session: AsyncSession = Depends(get_db_session),
     password_manager: PasswordManager = Depends(get_password_manager),
     redis_client: Redis = Depends(get_redis_client),
+    jwt_handler: JWTHandler = Depends(get_jwt_handler),
 ):
     """
     Confirm password reset and set new password.
@@ -493,6 +497,7 @@ async def confirm_password_reset(
         db_session: Database session
         password_manager: Password manager
         redis_client: Redis client
+        jwt_handler: JWT handler instance
 
     Returns:
         PasswordResetConfirmResponse: Success message
@@ -533,9 +538,9 @@ async def confirm_password_reset(
         # Delete reset token from Redis
         await redis_client.delete(redis_key)
 
-        # TODO: Invalidate all existing JWT tokens for this user
-        # This would require maintaining a revocation list in Redis
-        # For now, tokens will expire naturally (within their expiry time)
+        # Invalidate all tokens issued before this point
+        user_id_str = user_id.decode() if isinstance(user_id, bytes) else str(user_id)
+        await jwt_handler.revoke_all_user_tokens(user_id_str)
 
         logger.info(f"Password reset completed for user {user_id}")
 

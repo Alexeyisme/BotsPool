@@ -53,6 +53,13 @@ async def get_current_user(
         # Validate token
         payload = jwt_handler.validate_token(credentials.credentials, "access")
 
+        if await jwt_handler.is_token_revoked(payload.get("sub"), payload.get("iat")):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         return {
             "user_id": payload.get("sub"),
             "role": payload.get("role"),
@@ -62,6 +69,8 @@ async def get_current_user(
             "token_payload": payload,
         }
 
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.warning(f"Token validation failed: {exc}")
         raise HTTPException(

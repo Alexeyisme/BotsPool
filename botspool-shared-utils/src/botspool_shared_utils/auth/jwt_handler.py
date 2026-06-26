@@ -7,6 +7,7 @@ using RS256 algorithm for secure authentication.
 
 import json
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID, uuid4
@@ -41,12 +42,14 @@ class JWTHandler:
         refresh_token_expiry: int = 2592000,  # 30 days
         issuer: str = "botspool.ai",
         audience: str = "botspool-api",
+        redis_client: Optional[Any] = None,
     ):
         self.algorithm = algorithm
         self.access_token_expiry = access_token_expiry
         self.refresh_token_expiry = refresh_token_expiry
         self.issuer = issuer
         self.audience = audience
+        self.redis_client = redis_client
         self.logger = logging.getLogger(__name__)
 
         # Initialize keys
@@ -352,6 +355,48 @@ class JWTHandler:
         except Exception as e:
             self.logger.error(f"Failed to revoke token: {e}")
             return False
+
+    async def revoke_all_user_tokens(self, user_id: Union[str, UUID]) -> None:
+        """
+        Invalidate every token previously issued to a user (e.g. after a
+        password reset). Stores the current timestamp as a "token version";
+        validate_token_version() rejects any token whose `iat` predates it.
+
+        Args:
+            user_id: User identifier whose tokens should be revoked
+        """
+        if not self.redis_client:
+            self.logger.warning(
+                "Redis client not configured; skipping token revocation for user %s",
+                user_id,
+            )
+            return
+
+        key = f"token_version:{user_id}"
+        await self.redis_client.set(key, str(int(time.time())), ex=self.refresh_token_expiry)
+        self.logger.info(f"Revoked all existing tokens for user {user_id}")
+
+    async def is_token_revoked(
+        self, user_id: Optional[str], issued_at: Optional[Union[int, float]]
+    ) -> bool:
+        """
+        Check whether a token was issued before the user's last revocation.
+
+        Args:
+            user_id: User identifier from the token's "sub" claim
+            issued_at: Token's "iat" claim (epoch seconds)
+
+        Returns:
+            True if the token predates the user's revocation timestamp
+        """
+        if not self.redis_client or not user_id or issued_at is None:
+            return False
+
+        version = await self.redis_client.get(f"token_version:{user_id}")
+        if not version:
+            return False
+
+        return float(issued_at) < float(version)
 
 
 # Global JWT handler instance

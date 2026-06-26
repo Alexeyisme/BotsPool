@@ -81,6 +81,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         create_graph_registry(redis_manager)
         logger.info("Graph registry initialized")
 
+        # Wire Redis into the JWT handler so it can support token revocation
+        from botspool_shared_utils.auth.jwt_handler import get_jwt_handler
+
+        get_jwt_handler().redis_client = redis_manager.redis_client
+
         # Initialize load balancer
         registry = __import__(
             "src.graphs.registry", fromlist=["get_graph_registry"]
