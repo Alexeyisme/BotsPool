@@ -26,7 +26,6 @@ from botspool_shared_utils.models.enums import (
     GraphType,
     SubscriptionTier,
 )
-from botspool_shared_utils.errors import AuthenticationError, ValidationError, ErrorCode
 from botspool_shared_utils.database.connection import DatabaseManager
 
 from ...dependencies import (
@@ -181,18 +180,9 @@ async def register(
             user=auth_result["user"],
         )
 
-    except ValidationError as exc:
-        logger.error(f"Registration validation failed: {exc}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    except AuthenticationError as exc:
-        logger.error(f"Registration authentication failed: {exc}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
     except Exception as exc:
-        logger.error(f"Registration failed: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed",
-        )
+        logger.error(f"Registration failed unexpectedly: {exc}", exc_info=True)
+        raise
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -249,14 +239,12 @@ async def login(
             user=auth_result["user"],
         )
 
-    except AuthenticationError as exc:
-        logger.error(f"Login failed for user {request.username}: {exc}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
     except Exception as exc:
-        logger.error(f"Login failed for user {request.username}: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed"
+        logger.error(
+            f"Login failed unexpectedly for user {request.username}: {exc}",
+            exc_info=True,
         )
+        raise
 
 
 @router.post("/refresh", response_model=RefreshResponse)
@@ -312,10 +300,7 @@ async def refresh_token(
 
     except Exception as exc:
         logger.warning(f"Token refresh failed: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
-        )
+        raise
 
 
 @router.post("/logout", response_model=LogoutResponse)
@@ -357,10 +342,8 @@ async def logout(
         return LogoutResponse(message="Successfully logged out")
 
     except Exception as exc:
-        logger.error(f"Logout failed: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Logout failed"
-        )
+        logger.error(f"Logout failed unexpectedly: {exc}", exc_info=True)
+        raise
 
 
 class PasswordResetRequestRequest(BaseModel):
@@ -560,18 +543,12 @@ async def confirm_password_reset(
             message="Password has been reset successfully"
         )
 
-    except ValidationError as exc:
-        logger.error(f"Password reset confirmation validation failed: {exc}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except HTTPException:
         raise
     except Exception as exc:
         await db_session.rollback()
-        logger.error(f"Password reset confirmation failed: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Password reset failed",
-        )
+        logger.error(f"Password reset confirmation failed: {exc}", exc_info=True)
+        raise
 
 
 @router.get("/me")
